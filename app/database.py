@@ -1,0 +1,38 @@
+import os
+from dotenv import load_dotenv
+from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+
+# Load environment variables from .env file only if DATABASE_URL is not set (for local development)
+if not os.getenv('DATABASE_URL'):
+    load_dotenv()
+# --- Database Configuration ---
+
+# --- Database Configuration ---
+# Use DATABASE_URL if set (e.g., in production on Render), otherwise use SQLite for local testing
+database_url = os.getenv('DATABASE_URL')
+if database_url:
+    # For production (Render), parse and reconstruct URL to handle SSL parameters properly
+    from urllib.parse import urlparse, parse_qs, urlunparse, urlencode
+    parsed = urlparse(database_url)
+    query_params = parse_qs(parsed.query)
+    # Remove ssl-mode and add ssl parameters if needed
+    if 'ssl-mode' in query_params:
+        del query_params['ssl-mode']
+        # For mysql-connector-python, add ssl_ca parameter pointing to CA cert file
+        # Note: Only add ssl_ca if you have a valid CA certificate file path
+        # query_params['ssl_ca'] = ['/path/to/ca-cert.pem']
+    new_query = urlencode(query_params, doseq=True)
+    # Ensure the scheme includes the mysql-connector-python driver
+    scheme = "mysql+mysqlconnector"
+    SQLALCHEMY_DATABASE_URL = urlunparse((scheme, parsed.netloc, parsed.path, parsed.params, new_query, parsed.fragment))
+else:
+    # For local testing, use SQLite
+    SQLALCHEMY_DATABASE_URL = "sqlite:///./mail_tracking.db"
+
+# --- Create the engine ---
+engine = create_engine(SQLALCHEMY_DATABASE_URL)
+
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
